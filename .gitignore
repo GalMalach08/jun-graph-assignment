@@ -1,0 +1,36 @@
+# Environment files (contain credentials)
+.env
+.env.local
+
+# Internal/interviewer-only files
+_test-guide/
+docs/
+
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+
+# Logs
+*.log
+logs/
+
+# Build artifacts
+dist/
+build/
+*.egg-info/
+
+# Candidate's solution (if they want to gitignore their work)
+solution/
+app/
+src/
