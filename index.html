@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Knowledge Graph Builder</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea, #764ba2);
+      height: 100vh;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #333;
+    }
+
+    .card {
+      background: #fff;
+      padding: 30px;
+      width: 420px;
+      border-radius: 12px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+      text-align: center;
+    }
+
+    h1 { margin-bottom: 20px; }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      box-sizing: border-box; /* Ensures padding doesn't affect width */
+    }
+
+    button {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 6px;
+      background: #667eea;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #5a67d8; }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+
+    .status { margin-top: 15px; font-size: 14px; min-height: 20px; }
+
+    a {
+      display: block;
+      margin-top: 10px;
+      color: #667eea;
+      text-decoration: none;
+      font-weight: bold;
+    }
+
+    .loader {
+      display: inline-flex;
+      gap: 6px;
+      margin-top: 10px;
+    }
+
+    .loader span {
+      width: 8px;
+      height: 8px;
+      background-color: #667eea;
+      border-radius: 50%;
+      animation: bounce 1.4s infinite ease-in-out both;
+    }
+
+    .loader span:nth-child(1) { animation-delay: -0.32s; }
+    .loader span:nth-child(2) { animation-delay: -0.16s; }
+
+    @keyframes bounce {
+      0%, 80%, 100% { transform: scale(0); }
+      40% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="card">
+    <h1>Knowledge Graph Builder</h1>
+
+    <input id="urlInput" type="text" placeholder="Enter webpage URL" value="https://sites.google.com/needham.k12.ma.us/pollardbuildingproject/past-meetings-materials" />
+    
+    <button id="buildBtn" onclick="buildGraph()">Build Graph</button>
+
+    <div id="loader" class="loader" style="display: none;">
+      <span></span><span></span><span></span>
+    </div>
+    <div class="status" id="status"></div>
+  </div>
+
+<script>
+    // Limits the text length to avoid LLM context window issues
+    const MAX_TEXT_LENGTH = 10000;
+
+    async function buildGraph() {
+        const url = document.getElementById("urlInput").value;
+        const status = document.getElementById("status");
+        const loader = document.getElementById("loader");
+        const button = document.getElementById("buildBtn");
+
+        if (!url) {
+            status.innerText = "Please enter a URL";
+            return;
+        }
+
+        try {
+            // Disable UI elements during processing
+            button.disabled = true;
+            loader.style.display = "inline-flex";
+            status.innerText = "Scraping webpage content...";
+
+            // Step 1: Scrape the HTML and get clean text
+            const scrapeResult = await scrapePage(url);
+
+            status.innerText = "Extracting entities with LLM...";
+            const clean_text = scrapeResult.clean_text.slice(0, MAX_TEXT_LENGTH);
+            
+            // Step 2: Send cleaned text to LLM for JSON extraction
+            const graphData = await extractWithLLM(clean_text);
+
+            status.innerText = "Writing graph to Neo4j database...";
+            
+            // Step 3: Write the extracted JSON data to Neo4j
+            const result = await writeGraph(graphData);
+
+            // Update UI with success state
+            loader.style.display = "none";
+            status.innerHTML = `
+                ✅ Graph created successfully!
+                <a href="${result.neo4j_url}" target="_blank">Open Neo4j Browser</a>
+            `;
+            button.disabled = false;
+        } catch (err) {
+            console.error(err);
+            loader.style.display = "none";
+            status.innerText = "❌ Error: " + err.message;
+            button.disabled = false;
+        }
+    }
+
+    async function scrapePage(url) {
+        // Send URL to Python backend for scraping
+        const res = await fetch("http://127.0.0.1:8000/scrape", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url })
+        });
+        if (!res.ok) throw new Error("Scraping failed");
+        return await res.json();
+    }
+
+    async function extractWithLLM(cleanText) {
+        // Request LLM to parse text into graph JSON format
+        const res = await fetch("http://127.0.0.1:8000/extract", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ clean_text: cleanText })
+        });
+        if (!res.ok) throw new Error("LLM extraction failed");
+        return await res.json();
+    }
+
+    async function writeGraph(graphData) {
+        // Send structured data to Neo4j via Cypher queries
+        const res = await fetch("http://127.0.0.1:8000/write-graph", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ data: graphData })
+        });
+        if (!res.ok) throw new Error("Neo4j write failed");
+        return await res.json();
+    }
+</script>
+
+</body>
+</html>

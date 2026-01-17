@@ -34,3 +34,17 @@ build/
 solution/
 app/
 src/
+
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Environment
+.env
+
+# OS / IDE
+.vscode/
+.idea/
+.DS_Store
