@@ -76,10 +76,14 @@ The prompt instructs the LLM to:
 2. **Challenge:** First-time use of Docker and Neo4j  
    - **Solution:** This was my first experience working with Docker and Neo4j, which required learning new concepts such as containers. I addressed this by reading official documentation, experimenting with the provided Docker setup, using LLM tools (e.g., ChatGPT) for guidance, and watching technical tutorials. This process helped me understand the system architecture and successfully integrate all components into a working end-to-end pipeline.
 
-3. **Challenge:** Large input size causing unstable LLM output and long inference time  
-   - **Solution:** The extracted webpage text was truncated to a fixed maximum length before being sent to the LLM. This reduced token count, improved response stability, and minimized cases of invalid JSON returned by the model.
-
-
+3. **Challenge:** Large input size and model performance trade-offs  
+   - **Solution:** During development, inference with the `llama3.2:3b` model occasionally took up to 10–15 minutes and, in some cases, resulted in memory-related errors. While this model generally produced higher-quality and more meaningful relationships, its performance was not always stable on longer inputs.  
+     
+     A lighter model (`llama3.2:1b`) was also tested. This model runs significantly faster and more reliably, but the extracted relationships were noticeably more shallow and less semantically rich.  
+     
+     To improve stability, the extracted webpage text was truncated to a fixed maximum length before being sent to the LLM, reducing token count and minimizing invalid JSON outputs.  
+     
+     If the extraction step takes an unusually long time during execution, switching to the lighter model is recommended.  
 ---
 
 
@@ -199,7 +203,8 @@ The following screenshots show the knowledge graphs generated from the provided 
 ![Knowledge Graph – Middle School Building Project](screenshots/merge-graph.png)
 * Using only 30,000 characters from the scrape due to performence issues
 
-
+     
+All screenshots included in this submission were generated using the `llama3.2:3b` model.
 
 
 ## What I Would Improve
