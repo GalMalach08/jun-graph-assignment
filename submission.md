@@ -101,6 +101,21 @@ Start the infrastructure services (Neo4j and Ollama) using Docker:
 .\start.ps1       # Windows
 ```
 
+### Manual Setup (Alternative)
+
+If you prefer manual setup:
+
+```bash
+# 1. Copy environment config
+cp env.example .env
+
+# 2. Start services
+docker-compose up -d
+
+# 3. Wait for model download (first run only)
+docker-compose logs -f ollama-init
+```
+
 Wait until the setup process completes successfully and all services are running.
 
 #### Server
