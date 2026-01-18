@@ -56,6 +56,9 @@ The following entity types were extracted from the Pollard Middle School Buildin
 - **LLM:** Ollama (llama3.2 model)
 - **Database:** Neo4j
 - **Infrastructure:** Docker & Docker Compose
+- **Additional Libraries:** fastapi, uvicorn, requests, beautifulsoup4, neo4j
+
+
 
 ### LLM Prompt Strategy
 
