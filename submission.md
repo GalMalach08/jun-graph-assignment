@@ -1,7 +1,9 @@
 # Submission Notes
 
 **Candidate Name:** Gal Malach
+--
 **Date:** 17/01/2026
+--
 **Time Spent:** ~5 hours
 ---
 
