@@ -194,8 +194,9 @@ The following screenshots show the knowledge graphs generated from the provided 
 If I had more time, I would:
 
 1. Perform deeper analysis of the source webpages and their content, which could reveal additional important entities and relationships that may have been missed due to the limited time scope of the assignment.
-2. Add client-side progress indication for long LLM inference.
-3. Improve entity deduplication across multiple webpages.
+2. Experiment with different LLM models and configurations in order to evaluate the trade-off between extraction quality and inference speed, and select the most suitable model for this use case.
+3. Add client-side progress indication for long LLM inference.
+4. Improve entity deduplication across multiple webpages.
 
 
 ## Questions / Feedback
