@@ -134,9 +134,6 @@ On Windows systems, step 3 may fail due to incorrect line endings (CRLF) in the 
 If this happens:
 Open infrastructure/ollama/init.sh in a text editor (e.g., VS Code).
 Change line endings from CRLF to LF.
-<img width="463" height="252" alt="image" src="https://github.com/user-attachments/assets/9f928be0-aaed-411a-b4be-a144f225485c" />
-To:
-<img width="302" height="151" alt="image" src="https://github.com/user-attachments/assets/648c303e-9d11-4efb-8b85-587aa3851723" />
 
 Save the file and restart Docker:
 ```bash
