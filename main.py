@@ -74,8 +74,6 @@ def write_graph_to_neo4j(data: dict):
     """Writes the extracted JSON data into the Neo4j graph database."""
     driver = get_driver()
     with driver.session() as session:
-        # 1. Clear existing data
-        session.run("MATCH (n) DETACH DELETE n")
 
         # 2. Create Project Node
         project = data.get("project", {})
@@ -106,8 +104,9 @@ def write_graph_to_neo4j(data: dict):
             )
 
             # Committee Node
-            comm = meeting.get("committee", {})
-            if comm.get("name"):
+            comm = meeting.get("committee")
+            # Ensure comm is a dictionary and not None before calling .get()
+            if isinstance(comm, dict) and comm.get("name"):
                 session.run(
                     """
                     MATCH (m:Meeting {title: $meeting_title})

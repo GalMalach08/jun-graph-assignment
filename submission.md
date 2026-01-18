@@ -54,6 +54,7 @@ The following entity types were extracted from the Pollard Middle School Buildin
 - **LLM:** Ollama (llama3.2 model)
 - **Database:** Neo4j
 - **Infrastructure:** Docker & Docker Compose
+- **Additional Libraries:** fastapi, uvicorn, requests, beautifulsoup4, neo4j
 
 ### LLM Prompt Strategy
 
@@ -148,10 +149,14 @@ The following screenshots show the knowledge graphs generated from the provided 
 ![Knowledge Graph – Pollard Middle School Project](screenshots/site-1-graph.png)
 
 ### Test Website 2
-![Knowledge Graph – Freeman-Kennedy Expansion Project](screenshots/site-2-graph.png)
-
-### Test Website 3
 ![Knowledge Graph – Middle School Building Project](screenshots/site-3-graph.png)
+* Using only 30,000 characters from the scrape due to performence issues
+
+### Merged Graph Website 1 + Website 2
+![Knowledge Graph – Middle School Building Project](screenshots/merge-graph.png)
+* Using only 30,000 characters from the scrape due to performence issues
+
+
 
 
 ## What I Would Improve

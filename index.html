@@ -87,7 +87,7 @@
   <div class="card">
     <h1>Knowledge Graph Builder</h1>
 
-    <input id="urlInput" type="text" placeholder="Enter webpage URL" value="https://sites.google.com/needham.k12.ma.us/pollardbuildingproject/past-meetings-materials" />
+    <input id="urlInput" type="text" placeholder="Enter webpage URL" />
     
     <button id="buildBtn" onclick="buildGraph()">Build Graph</button>
 
@@ -99,7 +99,7 @@
 
 <script>
     // Limits the text length to avoid LLM context window issues
-    const MAX_TEXT_LENGTH = 10000;
+    const MAX_TEXT_LENGTH = 40000;
 
     async function buildGraph() {
         const url = document.getElementById("urlInput").value;
