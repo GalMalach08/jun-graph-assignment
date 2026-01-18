@@ -82,16 +82,30 @@ The prompt instructs the LLM to:
 
 ---
 
+
 ## Running the Application
 
 ### Prerequisites
-
 - Docker Desktop installed and running
 - Ports 11434, 7474, 7687 available
+- Python 3 installed (recommended 3.10+)
 
-### Installation & Running the Application
+### Step-by-step (from scratch)
 
-#### Docker
+#### 1) Download the project
+Open a terminal / PowerShell and run:
+
+```bash
+# Create a new folder anywhere on your machine (example)
+mkdir knowledge-graph-assignment
+cd knowledge-graph-assignment
+
+# Clone the repository
+git clone https://github.com/GalMalach08/jun-graph-assignment.git
+cd jun-graph-assignment
+```
+
+#### 2) Docker
  Make sure you are located in the project root directory before running any of the commands below.
 
 Start the infrastructure services (Neo4j and Ollama) using Docker:
@@ -101,7 +115,7 @@ Start the infrastructure services (Neo4j and Ollama) using Docker:
 .\start.ps1       # Windows
 ```
 
-### Manual Setup (Alternative)
+#### Manual Setup (Alternative)
 
 If you prefer manual setup:
 
@@ -118,7 +132,7 @@ docker-compose logs -f ollama-init
 
 Wait until the setup process completes successfully and all services are running.
 
-#### Server
+#### 3) Server
 Start the backend server (FastAPI). From the project root directory, create and activate a Python virtual environment, install the required dependencies, and run the server:
 
 ```bash
@@ -131,7 +145,7 @@ python -m uvicorn app:app --reload
 After running the commands above, the backend server will be available at:
 http://localhost:8000
 
-#### Client
+#### 4) Client
 
 To run the client side, simply open the index.html file in a web browser.
 
