@@ -1,17 +1,21 @@
+import os
 from neo4j import GraphDatabase
 from provided.scraper import fetch_html
 from bs4 import BeautifulSoup
 import requests
 import json
 import re
+from dotenv import load_dotenv
 
 # Neo4j connection details
-NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASSWORD = "password123"
+load_dotenv()
+NEO4J_URI = os.getenv("NEO4J_URI")
+NEO4J_USER = os.getenv("NEO4J_USER")
+NEO4J_PASSWORD = os.getenv("NEO4J_PASSWORD")
 
 def get_driver():
-    """Returns a new Neo4j driver instance."""
+    if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD]):
+        raise RuntimeError("Neo4j environment variables are missing or not loaded")
     return GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 
 def get_clean_text(url: str) -> str:
@@ -25,23 +29,46 @@ def get_clean_text(url: str) -> str:
 
     text = soup.get_text(separator=" ")
     return " ".join(text.split())
-
 def extract_graph_data_with_llm(clean_text: str) -> dict:
-    """Sends text to Ollama and returns a validated JSON dictionary."""
+    """Extracts structured graph data from text using an LLM."""
     prompt = f"""
-You are an information extraction system. Return ONLY valid JSON.
-Extract project, meetings, committees, topics, documents, and statements.
+You are an information extraction system.
+
+Return ONLY valid JSON.
+Do NOT include explanations or markdown.
+
+Important rules:
+- Do not invent information.
+- If a value is not explicitly present, use null or an empty list.
+- Do not use placeholder values like "string".
+
+Extract structured data from list-based or navigational content.
 
 Schema:
 {{
-  "project": {{ "name": "string", "url": "string", "description": "string" }},
+  "project": {{
+    "name": "text or null",
+    "url": "text or null",
+    "description": "text or null"
+  }},
   "meetings": [
     {{
-      "title": "string", "date": "string", "type": "string",
-      "committee": {{ "name": "string", "hasVotingPower": "string" }},
-      "topics": [ {{ "name": "string", "category": "string" }} ],
-      "documents": [ {{ "title": "string", "type": "string", "url": "string" }} ],
-      "statements": [ {{ "text": "string", "speaker": "string" }} ]
+      "title": "text",
+      "date": "ISO date string or null",
+      "type": "text or null",
+      "committee": {{
+        "name": "text or null",
+        "hasVotingPower": "true/false or null"
+      }},
+      "topics": [],
+      "documents": [
+        {{
+          "title": "text",
+          "type": "text or null",
+          "url": "text or null"
+        }}
+      ],
+      "statements": []
     }}
   ]
 }}
@@ -57,39 +84,67 @@ Text:
             "model": "llama3.2:3b",
             "prompt": prompt,
             "stream": False,
-            "format": "json" # Forces Ollama to output valid JSON
+            "format": "json"
         }
     )
 
     result = response.json()
     raw_content = result.get("response", "")
 
-    # Clean the response in case the LLM added markdown wrappers
     clean_json = re.search(r'\{.*\}', raw_content, re.DOTALL)
     if clean_json:
         return json.loads(clean_json.group(0))
+
     return json.loads(raw_content)
 
+
+
 def write_graph_to_neo4j(data: dict):
-    """Writes the extracted JSON data into the Neo4j graph database."""
+    """Writes extracted LLM data into Neo4j, with defensive handling for missing or malformed fields."""
+
+    if not isinstance(data, dict):
+        raise ValueError("LLM output is not a dictionary")
+
     driver = get_driver()
+
     with driver.session() as session:
 
-        # 2. Create Project Node
-        project = data.get("project", {})
+        # ---------- Project ----------
+        project = data.get("project")
+        if not isinstance(project, dict):
+            raise ValueError("Project data is missing or invalid")
+
+        project_name = project.get("name")
+        if not project_name:
+            raise ValueError("Project name is missing")
+
         session.run(
             """
             MERGE (p:Project {name: $name})
-            SET p.url = $url, p.description = $description
+            SET p.url = $url,
+                p.description = $description
             """,
-            name=project.get("name"),
+            name=project_name,
             url=project.get("url"),
             description=project.get("description")
         )
 
-        # 3. Process Meetings and related entities
-        for meeting in data.get("meetings", []):
-            # Meeting Node
+        # ---------- Meetings ----------
+        meetings = data.get("meetings")
+        if not isinstance(meetings, list):
+            return  # No meetings → nothing else to write
+
+        for meeting in meetings:
+            if not isinstance(meeting, dict):
+                continue
+
+            title = meeting.get("title")
+            date = meeting.get("date")
+
+            # Cannot safely identify a Meeting without these
+            if not title or not date:
+                continue
+
             session.run(
                 """
                 MATCH (p:Project {name: $project_name})
@@ -97,69 +152,82 @@ def write_graph_to_neo4j(data: dict):
                 SET m.type = $type
                 MERGE (p)-[:HAS_MEETING]->(m)
                 """,
-                project_name=project.get("name"),
-                title=meeting.get("title"),
-                date=meeting.get("date"),
+                project_name=project_name,
+                title=title,
+                date=date,
                 type=meeting.get("type")
             )
 
-            # Committee Node
-            comm = meeting.get("committee")
-            # Ensure comm is a dictionary and not None before calling .get()
-            if isinstance(comm, dict) and comm.get("name"):
+            # ---------- Committee ----------
+            committee = meeting.get("committee")
+            if isinstance(committee, dict) and committee.get("name"):
                 session.run(
                     """
-                    MATCH (m:Meeting {title: $meeting_title})
+                    MATCH (m:Meeting {title: $title, date: $date})
                     MERGE (c:Committee {name: $name})
                     SET c.hasVotingPower = $hasVotingPower
                     MERGE (m)-[:HELD_BY]->(c)
                     """,
-                    meeting_title=meeting.get("title"),
-                    name=comm.get("name"),
-                    hasVotingPower=comm.get("hasVotingPower")
+                    title=title,
+                    date=date,
+                    name=committee.get("name"),
+                    hasVotingPower=committee.get("hasVotingPower")
                 )
 
-            # Topics
-            for topic in meeting.get("topics", []):
+            # ---------- Topics ----------
+            for topic in meeting.get("topics") or []:
+                if not isinstance(topic, dict) or not topic.get("name"):
+                    continue
+
                 session.run(
                     """
-                    MATCH (m:Meeting {title: $meeting_title})
+                    MATCH (m:Meeting {title: $title, date: $date})
                     MERGE (t:Topic {name: $name})
                     SET t.category = $category
                     MERGE (m)-[:DISCUSSED]->(t)
                     """,
-                    meeting_title=meeting.get("title"),
+                    title=title,
+                    date=date,
                     name=topic.get("name"),
                     category=topic.get("category")
                 )
 
-            # Documents (Added)
-            for doc in meeting.get("documents", []):
+            # ---------- Documents ----------
+            for doc in meeting.get("documents") or []:
+                if not isinstance(doc, dict) or not doc.get("title"):
+                    continue
+
                 session.run(
                     """
-                    MATCH (m:Meeting {title: $meeting_title})
-                    MERGE (d:Document {title: $title})
-                    SET d.url = $url, d.type = $type
+                    MATCH (m:Meeting {title: $title, date: $date})
+                    MERGE (d:Document {title: $doc_title})
+                    SET d.url = $url,
+                        d.type = $type
                     MERGE (m)-[:HAS_DOCUMENT]->(d)
                     """,
-                    meeting_title=meeting.get("title"),
-                    title=doc.get("title"),
+                    title=title,
+                    date=date,
+                    doc_title=doc.get("title"),
                     url=doc.get("url"),
                     type=doc.get("type")
                 )
 
-            # Statements (Added)
-            for stmt in meeting.get("statements", []):
+            # ---------- Statements ----------
+            for stmt in meeting.get("statements") or []:
+                if not isinstance(stmt, dict) or not stmt.get("text"):
+                    continue
+
                 session.run(
                     """
-                    MATCH (m:Meeting {title: $meeting_title})
+                    MATCH (m:Meeting {title: $title, date: $date})
                     CREATE (s:Statement {text: $text, speaker: $speaker})
                     MERGE (m)-[:RECORDED_STATEMENT]->(s)
                     """,
-                    meeting_title=meeting.get("title"),
+                    title=title,
+                    date=date,
                     text=stmt.get("text"),
                     speaker=stmt.get("speaker")
                 )
 
     driver.close()
-    print("Graph successfully written to Neo4j!")
+    print("Data successfully written to Neo4j.")

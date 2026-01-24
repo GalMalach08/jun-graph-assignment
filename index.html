@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Knowledge Graph Builder</title>
+
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -24,15 +25,39 @@
       text-align: center;
     }
 
-    h1 { margin-bottom: 20px; }
+    h1 {
+      margin-bottom: 24px;
+    }
 
-    input {
+    .form-group {
+      margin-bottom: 16px;
+      width: 100%;
+    }
+
+    input[type="text"],
+    input[type="number"] {
       width: 100%;
       padding: 10px;
-      margin-bottom: 15px;
       border-radius: 6px;
       border: 1px solid #ccc;
-      box-sizing: border-box; /* Ensures padding doesn't affect width */
+      box-sizing: border-box;
+    }
+
+    .checkbox-section {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 8px;
+    }
+
+    #limitContainer {
+      width: 100%;
+    }
+
+    #limitContainer p {
+      font-size: 12px;
+      text-align: left;
+      margin: 4px 0 0;
     }
 
     button {
@@ -46,139 +71,205 @@
       cursor: pointer;
     }
 
-    button:hover { background: #5a67d8; }
-    button:disabled { background: #ccc; cursor: not-allowed; }
+    button:hover {
+      background: #5a67d8;
+    }
 
-    .status { margin-top: 15px; font-size: 14px; min-height: 20px; }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+
+    .status {
+      margin-top: 16px;
+      font-size: 14px;
+      min-height: 20px;
+    }
 
     a {
       display: block;
-      margin-top: 10px;
+      margin-top: 8px;
       color: #667eea;
       text-decoration: none;
       font-weight: bold;
     }
-
     .loader {
-      display: inline-flex;
-      gap: 6px;
-      margin-top: 10px;
-    }
+  display: inline-flex;
+  gap: 6px;
+  margin-top: 12px;
+  justify-content: center;
+}
 
-    .loader span {
-      width: 8px;
-      height: 8px;
-      background-color: #667eea;
-      border-radius: 50%;
-      animation: bounce 1.4s infinite ease-in-out both;
-    }
+.loader span {
+  width: 8px;
+  height: 8px;
+  background-color: #667eea;
+  border-radius: 50%;
+  animation: bounce 1.4s infinite ease-in-out both;
+}
 
-    .loader span:nth-child(1) { animation-delay: -0.32s; }
-    .loader span:nth-child(2) { animation-delay: -0.16s; }
+.loader span:nth-child(1) { animation-delay: -0.32s; }
+.loader span:nth-child(2) { animation-delay: -0.16s; }
 
-    @keyframes bounce {
-      0%, 80%, 100% { transform: scale(0); }
-      40% { transform: scale(1); }
-    }
+@keyframes bounce {
+  0%, 80%, 100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}
+
   </style>
 </head>
+
 <body>
 
   <div class="card">
+
     <h1>Knowledge Graph Builder</h1>
 
-    <input id="urlInput" type="text" placeholder="Enter webpage URL" />
-    
-    <button id="buildBtn" onclick="buildGraph()">Build Graph</button>
-
-    <div id="loader" class="loader" style="display: none;">
-      <span></span><span></span><span></span>
+    <!-- URL -->
+    <div class="form-group">
+      <input
+        id="urlInput"
+        type="text"
+        placeholder="Enter webpage URL"
+      />
     </div>
+
+    <!-- Limit option -->
+    <div class="form-group checkbox-section">
+      <label>
+        <input
+          type="checkbox"
+          id="limitCheckbox"
+          onchange="toggleLimitInput()"
+        />
+        Limit text sent to LLM
+      </label>
+
+      <div id="limitContainer" style="display: none;">
+        <input
+          id="maxCharsInput"
+          type="number"
+          min="1000"
+          step="1000"
+          placeholder="Max characters (e.g. 5000)"
+        />
+        <p>
+          ⚠️ Limiting the number of characters reduce extraction quality,
+          but can significantly improve performance for large pages.
+        </p>
+      </div>
+    </div>
+
+    <!-- Action -->
+    <button id="buildBtn" onclick="buildGraph()">Build Graph</button>
+    <div class="loader" id="loader" style="display: none;">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+
     <div class="status" id="status"></div>
+
   </div>
 
 <script>
-    // Limits the text length to avoid LLM context window issues
-    const MAX_TEXT_LENGTH = 40000;
+  function toggleLimitInput() {
+    const container = document.getElementById("limitContainer");
+    const checkbox = document.getElementById("limitCheckbox");
+    container.style.display = checkbox.checked ? "block" : "none";
+  }
 
-    async function buildGraph() {
-        const url = document.getElementById("urlInput").value;
-        const status = document.getElementById("status");
-        const loader = document.getElementById("loader");
-        const button = document.getElementById("buildBtn");
+  async function buildGraph() {
+    const url = document.getElementById("urlInput").value;
+    const status = document.getElementById("status");
+    const button = document.getElementById("buildBtn");
+    const loader = document.getElementById("loader");
 
-        if (!url) {
-            status.innerText = "Please enter a URL";
-            return;
-        }
+    const limitEnabled = document.getElementById("limitCheckbox").checked;
+    const maxCharsValue = document.getElementById("maxCharsInput").value;
 
-        try {
-            // Disable UI elements during processing
-            button.disabled = true;
-            loader.style.display = "inline-flex";
-            status.innerText = "Scraping webpage content...";
-
-            // Step 1: Scrape the HTML and get clean text
-            const scrapeResult = await scrapePage(url);
-
-            status.innerText = "Extracting entities with LLM...";
-            const clean_text = scrapeResult.clean_text.slice(0, MAX_TEXT_LENGTH);
-            
-            // Step 2: Send cleaned text to LLM for JSON extraction
-            const graphData = await extractWithLLM(clean_text);
-
-            status.innerText = "Writing graph to Neo4j database...";
-            
-            // Step 3: Write the extracted JSON data to Neo4j
-            const result = await writeGraph(graphData);
-
-            // Update UI with success state
-            loader.style.display = "none";
-            status.innerHTML = `
-                ✅ Graph created successfully!
-                <a href="${result.neo4j_url}" target="_blank">Open Neo4j Browser</a>
-            `;
-            button.disabled = false;
-        } catch (err) {
-            console.error(err);
-            loader.style.display = "none";
-            status.innerText = "❌ Error: " + err.message;
-            button.disabled = false;
-        }
+    if (!url) {
+      status.innerText = "Please enter a URL";
+      return;
+    }
+    if (limitEnabled && !maxCharsValue) {
+      status.innerText = "Please enter a maximum number of characters";
+      return;
     }
 
-    async function scrapePage(url) {
-        // Send URL to Python backend for scraping
-        const res = await fetch("http://127.0.0.1:8000/scrape", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ url })
-        });
-        if (!res.ok) throw new Error("Scraping failed");
-        return await res.json();
+    let maxChars = null;
+    if (limitEnabled && maxCharsValue) {
+      maxChars = parseInt(maxCharsValue, 10);
     }
 
-    async function extractWithLLM(cleanText) {
-        // Request LLM to parse text into graph JSON format
-        const res = await fetch("http://127.0.0.1:8000/extract", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ clean_text: cleanText })
-        });
-        if (!res.ok) throw new Error("LLM extraction failed");
-        return await res.json();
-    }
+    
+    try {
+      button.disabled = true;
+      loader.style.display = "inline-flex";
 
-    async function writeGraph(graphData) {
-        // Send structured data to Neo4j via Cypher queries
-        const res = await fetch("http://127.0.0.1:8000/write-graph", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ data: graphData })
-        });
-        if (!res.ok) throw new Error("Neo4j write failed");
-        return await res.json();
+      status.innerText = "Scraping webpage content";
+
+      const scrapeResult = await scrapePage(url);
+
+      status.innerText = "Extracting entities with LLM";
+
+      const graphData = await extractWithLLM(scrapeResult.clean_text, maxChars);
+
+      status.innerText = "Writing graph to Neo4j database";
+
+      const result = await writeGraph(graphData);
+
+      status.innerHTML = `
+        ✅ Graph created successfully!
+        <a href="${result.neo4j_url}" target="_blank">Open Neo4j Browser</a>
+      `;
+      button.disabled = false;
+      loader.style.display = "none";
+
+
+    } catch (err) {
+      console.error(err);
+      status.innerText = "❌ Error: " + err.message;
+      button.disabled = false;
     }
+  }
+
+  async function scrapePage(url) {
+    const res = await fetch("http://127.0.0.1:8000/scrape", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url })
+    });
+
+    if (!res.ok) throw new Error("Scraping failed");
+    return await res.json();
+  }
+
+  async function extractWithLLM(cleanText, maxChars) {
+    const payload = { clean_text: cleanText };
+    if (maxChars !== null) payload.max_chars = maxChars;
+
+    const res = await fetch("http://127.0.0.1:8000/extract", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) throw new Error("LLM extraction failed");
+    return await res.json();
+  }
+
+  async function writeGraph(graphData) {
+    const res = await fetch("http://127.0.0.1:8000/write-graph", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ data: graphData })
+    });
+
+    if (!res.ok) throw new Error("Neo4j write failed");
+    return await res.json();
+  }
 </script>
 
 </body>

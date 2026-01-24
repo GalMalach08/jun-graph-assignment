@@ -110,7 +110,7 @@ cd jun-graph-assignment
 ```
 
 #### 2) Docker
- Make sure you are located in the project root directory before running any of the commands below.
+ Make sure you are located in the project root directory and that docker desktop is open and running (install if needed) before running any of the commands below.
 
 Start the infrastructure services (Neo4j and Ollama) using Docker:
 
